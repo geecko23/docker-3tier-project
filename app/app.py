@@ -52,8 +52,7 @@ def home():
         user_list += f"<li>{user[1]} - {user[2]}</li>"
 
     return f"""
-    <h1>Docker 3-Tier Application</h1>
-
+    <h1>Docker 3-Tier Application - Jenkins CI/CD</h1>
     <h2>Redis</h2>
     <p>Page visits: {visits}</p>
 
