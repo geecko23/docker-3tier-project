@@ -36,9 +36,14 @@ def test_homepage(monkeypatch):
         lambda: FakeConnection()
     )
 
+    # Create Flask test client
     client = app_module.app.test_client()
 
+    # Request homepage
     response = client.get("/")
 
-    assert b"THIS SHOULD FAIL" in response.data
+    # Verify response
     assert response.status_code == 200
+    assert b"Docker 3-Tier Application" in response.data
+
+
