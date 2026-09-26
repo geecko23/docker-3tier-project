@@ -40,5 +40,5 @@ def test_homepage(monkeypatch):
 
     response = client.get("/")
 
+    assert b"THIS SHOULD FAIL" in response.data
     assert response.status_code == 200
-    assert b"Docker 3-Tier Application" in response.data
