@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: app
-          image: docker-3tier-app:latest
+          image: docker-3tier-app:v2
           imagePullPolicy: Never
           ports:
             - containerPort: 5000
@@ -33,3 +33,16 @@ spec:
             - secretRef:
                 name: app-secret
 
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 10
