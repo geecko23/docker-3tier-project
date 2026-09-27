@@ -26,17 +26,10 @@ spec:
           ports:
             - containerPort: 5000
 
-          env:
-            - name: REDIS_HOST
-              value: redis-service
+          envFrom:
+            - configMapRef:
+                name: app-config
 
-            - name: REDIS_PORT
-              value: "6379"
- 
-            - name: DB_HOST
-              value: mysql-service
-
-            - name: DB_PORT
-              value: "3306"
-
+            - secretRef:
+                name: app-secret
 
