@@ -1,6 +1,7 @@
 from flask import Flask
 import redis
 import mysql.connector
+import os
 
 from db_config import (
     DB_HOST,
@@ -14,8 +15,8 @@ app = Flask(__name__)
 
 # Redis connection
 redis_client = redis.Redis(
-    host="redis",
-    port=6379,
+    host=os.getenv("REDIS_HOST", "localhost"),
+    port=int(os.getenv("REDIS_PORT","6379")),
     decode_responses=True
 )
 
