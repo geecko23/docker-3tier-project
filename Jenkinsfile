@@ -63,7 +63,7 @@ pipeline {
                     echo "=== UPDATE KUBERNETES DEPLOYMENT ==="
 
                     kubectl set image deployment/app \
-                    app=docker-3tier-app:jenkins-${BUILD_NUMBER}
+                    app="$DOCKERHUB_USERNAME/docker-3tier-app:jenkins-${BUILD_NUMBER}"
                      
                     echo "=== WAIT FOR ROLLOUT ==="
 
