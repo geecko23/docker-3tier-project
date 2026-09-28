@@ -13,7 +13,9 @@ pipeline {
         stage('Test') {
             steps {
                 sh '''
-                    python3 -m venv .venv
+                    if [ ! -d .venv ]; then
+                       python3 -m venv .venv
+                    fi
                     . .venv/bin/activate
                     python -m pip install -r app/requirements
                     app/pytest
