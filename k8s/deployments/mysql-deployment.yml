@@ -35,7 +35,7 @@ spec:
             - name: MYSQL_DATABASE
               valueFrom:
                 configMapKeyRef:
-                  name: app-secret
+                  name: app-config
                   key: DB_NAME
             
           
