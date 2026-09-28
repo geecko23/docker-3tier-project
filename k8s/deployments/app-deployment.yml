@@ -22,7 +22,6 @@ spec:
       containers:
         - name: app
           image: docker-3tier-app:v2
-          imagePullPolicy: Never
           ports:
             - containerPort: 5000
 
