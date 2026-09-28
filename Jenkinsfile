@@ -1,5 +1,9 @@
 pipeline {
     agent any
+   
+     environment {
+        DOCKERHUB_USERNAME = 'abrar15'
+    }
 
     stages {
 
