@@ -31,3 +31,12 @@ spec:
 
             - name: MYSQL_DATABASE
               value: appdb
+          
+          volumeMounts:
+            - name: mysql-storage
+              mountPath: /var/lib/mysql
+
+      volumes:
+        - name: mysql-storage
+          persistentVolumeClaim:
+            claimName: mysql-pvc
