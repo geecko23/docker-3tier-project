@@ -27,10 +27,17 @@ spec:
 
           env:
             - name: MYSQL_ROOT_PASSWORD
-              value: root
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: DB_PASSWORD
 
             - name: MYSQL_DATABASE
-              value: appdb
+              valueFrom:
+                configMapKeyRef:
+                  name: app-secret
+                  key: DB_NAME
+            
           
           volumeMounts:
             - name: mysql-storage
