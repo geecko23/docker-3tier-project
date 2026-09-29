@@ -30,9 +30,6 @@ pipeline {
                     docker build \
                         -t docker-3tier-app:jenkins-${BUILD_NUMBER} \
                         ./app
-                    docker build \
-                        -t docker-3tier-mysql:jenkins-${BUILD_NUMBER} \
-                        ./db
 
                 '''
             }
@@ -59,13 +56,6 @@ pipeline {
 			docker push \
 			    "$DOCKERHUB_USERNAME/docker-3tier-app:jenkins-${BUILD_NUMBER}"
 
-			docker tag \
-			    docker-3tier-mysql:jenkins-${BUILD_NUMBER} \
-			    "$DOCKERHUB_USERNAME/docker-3tier-mysql:jenkins-${BUILD_NUMBER}"
-
-			docker push \
-			    "$DOCKERHUB_USERNAME/docker-3tier-mysql:jenkins-${BUILD_NUMBER}"
-
 			docker logout
 		    '''
 		}
@@ -80,14 +70,10 @@ pipeline {
                     kubectl set image deployment/app \
                     app="$DOCKERHUB_USERNAME/docker-3tier-app:jenkins-${BUILD_NUMBER}"
                      
-                    kubectl set image deployment/mysql \
-                    app="$DOCKERHUB_USERNAME/docker-3tier-mysql:jenkins-${BUILD_NUMBER}"
-                   
                     echo "=== WAIT FOR ROLLOUT ==="
 
                     kubectl rollout status deployment/app
                   
-                    kubectl rollout status deployment/mysql
                 '''
             }
         }
