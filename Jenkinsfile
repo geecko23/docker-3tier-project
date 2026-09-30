@@ -54,6 +54,33 @@ pipeline {
             }
         }
 
+	stage('Determine Version') {
+	    when {
+		expression {
+		    env.APP_CHANGED == 'true'
+		}
+	    }
+
+	    steps {
+		script {
+		    def latestTag = sh(
+			script: "git tag --list 'v*' --sort=-v:refname | head -n 1",
+			returnStdout: true
+		    ).trim()
+
+		    if (!latestTag) {
+			env.APP_VERSION = 'v1'
+		    } else {
+			def number = latestTag.substring(1).toInteger()
+			env.APP_VERSION = "v${number + 1}"
+		    }
+
+		    echo "Latest Git tag = ${latestTag}"
+		    echo "Application version = ${env.APP_VERSION}"
+		}
+	    }
+	}
+
         stage('Build Docker Image') {
             when {
                 expression {
@@ -64,7 +91,7 @@ pipeline {
             steps {
                 sh '''
                     docker build \
-                        -t docker-3tier-app:jenkins-${BUILD_NUMBER} \
+                        -t docker-3tier-app:jenkins-${APP_VERSION} \
                         ./app
                 '''
             }
@@ -91,11 +118,11 @@ pipeline {
                             --password-stdin
 
                         docker tag \
-                            docker-3tier-app:jenkins-${BUILD_NUMBER} \
-                            "$DOCKERHUB_USERNAME/docker-3tier-app:jenkins-${BUILD_NUMBER}"
+                            docker-3tier-app:jenkins-${APP_VERSION} \
+                            "$DOCKERHUB_USERNAME/docker-3tier-app:jenkins-${APP_VERSION}"
 
                         docker push \
-                            "$DOCKERHUB_USERNAME/docker-3tier-app:jenkins-${BUILD_NUMBER}"
+                            "$DOCKERHUB_USERNAME/docker-3tier-app:jenkins-${APP_VERSION}"
 
                         docker logout
                     '''
@@ -115,7 +142,7 @@ pipeline {
                     echo "=== UPDATE KUBERNETES DEPLOYMENT ==="
 
                     kubectl set image deployment/app \
-                        app="$DOCKERHUB_USERNAME/docker-3tier-app:jenkins-${BUILD_NUMBER}"
+                        app="$DOCKERHUB_USERNAME/docker-3tier-app:jenkins-${APP_VERSION}"
 
                     echo "=== WAIT FOR ROLLOUT ==="
 
