@@ -150,5 +150,27 @@ pipeline {
                 '''
             }
         }
+
+	stage('Create Git Tag') {
+	    when {
+		expression {
+		    env.APP_CHANGED == 'true'
+		}
+	    }
+
+	    steps {
+		sshagent(credentials: ['ssh-github']) {
+		    sh '''
+			echo "=== CREATE GIT TAG ==="
+
+			git tag "$APP_VERSION"
+
+			echo "=== PUSH GIT TAG ==="
+
+			git push origin "$APP_VERSION"
+		    '''
+		}
+	    }
+	}
     }
 }
