@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: app
-          image: docker-3tier-app:v2
+          image: abrar15/docker-3tier-app:jenkins-v3
           ports:
             - containerPort: 5000
 

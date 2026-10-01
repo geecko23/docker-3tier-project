@@ -10,3 +10,4 @@ patches:
   - path: replica-patch.yml
   - path: config-patch.yml
   - path: resource-patch.yml
+  - path: secret-patch.yml

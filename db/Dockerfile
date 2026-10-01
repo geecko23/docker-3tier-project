@@ -1,3 +1,3 @@
 FROM mysql:8.0
 
-COPY backup.sql /docker-entrypoint-initdb.d/backup.sql
+COPY init.sh /docker-entrypoint-initdb.d/init.sh

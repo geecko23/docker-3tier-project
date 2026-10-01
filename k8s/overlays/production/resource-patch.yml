@@ -7,6 +7,7 @@ spec:
     spec:
       containers:
         - name: mysql
+          image: docker-3tier-mysql:project-5
           resources:
             requests:
               cpu: "100m"

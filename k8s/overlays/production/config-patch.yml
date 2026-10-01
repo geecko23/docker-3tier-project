@@ -6,3 +6,4 @@ metadata:
 
 data:
   Environment: Production
+  DB_NAME: proddb
