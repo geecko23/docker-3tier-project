@@ -12,4 +12,6 @@ patches:
   - path: resource-patch.yml
   - path: secret-patch.yml
 
-
+images:
+  - name: docker-3tier-app
+    newTag: jenkins-v3
