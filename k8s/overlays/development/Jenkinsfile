@@ -174,7 +174,7 @@ pipeline {
 
                         echo "=== PUSH KUSTOMIZATION CHANGE ==="
 
-                        git push origin project-5
+                        git push origin HEAD:project-5
                     '''
                 }
             }
