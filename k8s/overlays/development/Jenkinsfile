@@ -139,15 +139,13 @@ pipeline {
 
             steps {
                 sh '''
-                    echo "=== UPDATE DEVELOPMENT IMAGE ==="
+                    echo "=== UPDATE DEVELOPMENT KUSTOMIZATION ==="
 
                     sed -i "s/newTag: .*/newTag: jenkins-${APP_VERSION}/" \
                         k8s/overlays/development/kustomization.yml
 
-                    echo "=== UPDATED KUSTOMIZATION ==="
-
-                    grep "newTag:" \
-                        k8s/overlays/development/kustomization.yml
+                    echo "Updated development image:"
+                    grep "newTag:" k8s/overlays/development/kustomization.yml
                 '''
             }
         }
@@ -189,9 +187,11 @@ pipeline {
 
             steps {
                 sh '''
-                    echo "=== APPLY DEVELOPMENT KUSTOMIZATION ==="
+                    echo "=== UPDATE DEVELOPMENT DEPLOYMENT IMAGE ==="
 
-                    kubectl apply -k k8s/overlays/development/
+                    kubectl set image deployment/app \
+                        app="$DOCKERHUB_USERNAME/docker-3tier-app:jenkins-${APP_VERSION}" \
+                        -n development
 
                     echo "=== WAIT FOR ROLLOUT ==="
 
