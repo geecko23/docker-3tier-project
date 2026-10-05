@@ -1,0 +1,102 @@
+pipeline {
+    agent any
+
+    parameters {
+        string(
+            name: 'APP_VERSION',
+            defaultValue: 'v4',
+            description: 'Application version to promote to production, e.g. v4'
+        )
+    }
+
+    stages {
+
+        stage('Activate Virtual Environment') {
+            steps {
+                sh '''
+                    python3 -m venv venv
+                    . venv/bin/activate
+                    python --version
+                '''
+            }
+        }
+
+        stage('Install Requirements') {
+            steps {
+                sh '''
+                    . venv/bin/activate
+                    pip install -r app/requirements.txt
+                '''
+            }
+        }
+
+        stage('Check Version Exists') {
+            steps {
+                sh '''
+                    if ! git rev-parse --verify "refs/tags/${APP_VERSION}" >/dev/null 2>&1; then
+                        echo "ERROR: Git tag ${APP_VERSION} does not exist."
+                        exit 1
+                    fi
+
+                    echo "Version ${APP_VERSION} exists."
+                '''
+            }
+        }
+
+        stage('Update Production Kustomization') {
+            steps {
+                sh '''
+                    sed -i \
+                        "s/newTag: jenkins-v[0-9]*/newTag: jenkins-${APP_VERSION}/" \
+                        k8s/overlays/production/kustomization.yml
+
+                    echo "Production image:"
+                    grep "newTag:" k8s/overlays/production/kustomization.yml
+                '''
+            }
+        }
+
+        stage('Commit Kustomization Change') {
+            steps {
+                sh '''
+                    git config user.name "Jenkins"
+                    git config user.email "jenkins@localhost"
+
+                    git add k8s/overlays/production/kustomization.yml
+
+                    if ! git diff --cached --quiet; then
+                        git commit \
+                            -m "Promote application to ${APP_VERSION} in production"
+
+                        git push origin HEAD:project-5
+                    else
+                        echo "Production is already configured for ${APP_VERSION}."
+                    fi
+                '''
+            }
+        }
+
+        stage('Deploy to Production') {
+            steps {
+                sh '''
+                    kubectl set image deployment/app \
+                        app=abrar15/docker-3tier-app:jenkins-${APP_VERSION} \
+                        -n production
+                '''
+            }
+        }
+
+        stage('Verify Rollout') {
+            steps {
+                sh '''
+                    kubectl rollout status deployment/app -n production
+
+                    echo "Production image:"
+                    kubectl get deployment app -n production \
+                        -o=jsonpath='{.spec.template.spec.containers[0].image}'
+                    echo
+                '''
+            }
+        }
+    }
+}
