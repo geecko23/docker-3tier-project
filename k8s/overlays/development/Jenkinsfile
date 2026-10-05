@@ -177,6 +177,8 @@ pipeline {
 			
 			else
 			   echo "No Kustomize change to commit"
+			
+			fi
                     '''
                 }
             }
