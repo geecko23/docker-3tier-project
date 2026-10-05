@@ -14,4 +14,4 @@ patches:
 
 images:
   - name: docker-3tier-app
-    newTag: jenkins-v3
+    newTag: jenkins-v4
