@@ -13,5 +13,5 @@ patches:
   - path: secret-patch.yml
 
 images:
-  - name: docker-3tier-app
+  - name: abrar15/docker-3tier-app
     newTag: jenkins-v4
