@@ -4,8 +4,8 @@ pipeline {
     parameters {
         string(
             name: 'APP_VERSION',
-            defaultValue: 'v4',
-            description: 'Application version to promote to production, e.g. v4'
+            defaultValue: 'v5',
+            description: 'Application version to promote to production, e.g. v5'
         )
     }
 
