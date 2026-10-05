@@ -164,15 +164,19 @@ pipeline {
 
                         git config user.name "Jenkins"
                         git config user.email "jenkins@localhost"
-
+               
                         git add k8s/overlays/development/kustomization.yml
+                        
+			if ! git diff --cached --quiet;then
+                           git commit \
+                               -m "Update development image to jenkins-${APP_VERSION}"
 
-                        git commit \
-                            -m "Update development image to jenkins-${APP_VERSION}"
+                           echo "=== PUSH KUSTOMIZATION CHANGE ==="
 
-                        echo "=== PUSH KUSTOMIZATION CHANGE ==="
-
-                        git push origin HEAD:project-5
+                           git push origin HEAD:project-5
+			
+			else
+			   echo "No Kustomize change to commit"
                     '''
                 }
             }
