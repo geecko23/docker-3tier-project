@@ -492,3 +492,4 @@ The pipeline can automatically:
 
 The project builds on the previous Docker + Jenkins project and introduces Kubernetes as the deployment platform.
 
+
