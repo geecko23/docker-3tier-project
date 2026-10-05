@@ -14,4 +14,4 @@ patches:
 
 images:
   - name: abrar15/docker-3tier-app
-    newTag: jenkins-v5
+    newTag: jenkins-v6
