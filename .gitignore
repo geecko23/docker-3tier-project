@@ -2,3 +2,4 @@
 __pycache__/
 *.pyc
 webhook-test.txt
+minikube-logs.txt
