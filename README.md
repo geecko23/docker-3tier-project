@@ -1,64 +1,73 @@
-# Docker 3-Tier Application — Kubernetes + Jenkins CI/CD
+# Docker 3-Tier Application — Multi-Environment Kubernetes + Jenkins CI/CD
 
-A 3-tier Flask application deployed on Kubernetes and automated with a Jenkins CI/CD pipeline.
+A containerized 3-tier Flask application deployed to Kubernetes with separate **development and production environments**, automated testing, Docker image versioning, Jenkins CI/CD, Kustomize configuration management, persistent storage, resource limits, and controlled production promotion.
 
-This project extends the original Dockerized 3-tier application by introducing Kubernetes-based deployment, automated testing, Docker image versioning, Docker Hub publishing, change detection, rolling updates, and Git release tags.
+This project extends the previous Docker + Jenkins + Kubernetes implementation by introducing **multi-environment Kubernetes deployments** and a more controlled CI/CD workflow where Git and Kustomize define the desired application configuration.
 
 ---
 
-## Architecture
+# Architecture
 
 ```text
-                         GitHub
-                            │
-                            │ Push
-                            ▼
-                       ┌─────────┐
-                       │ Jenkins │
-                       └────┬────┘
-                            │
-              ┌─────────────┼─────────────┐
-              │             │             │
-             Test      Build & Push    Git Tag
-              │             │             │
-              └─────────────┼─────────────┘
-                            │
-                            ▼
-                       Docker Hub
-                            │
-                            │ Pull image
-                            ▼
-                      ┌───────────┐
-                      │ Kubernetes│
-                      │  Minikube │
-                      └─────┬─────┘
-                            │
-                ┌───────────┼───────────┐
-                │           │           │
-              Nginx        Flask       Redis
-                │           │
-                │           └───────┐
-                │                   │
-                │                 MySQL
-                │
-              User
+                              GitHub
+                                 │
+                                 │ Push
+                                 ▼
+                         ┌──────────────┐
+                         │    Jenkins   │
+                         └──────┬───────┘
+                                │
+                    ┌───────────┴───────────┐
+                    │                       │
+              Development              Production
+                Pipeline                  Pipeline
+                    │                       │
+              Test + Build              Manual
+                    │                   Promotion
+                    │                       │
+                    ▼                       │
+              Docker Hub ◄──────────────────┘
+                    │
+                    │ Pull versioned image
+                    ▼
+             Kubernetes Cluster
+                    │
+          ┌─────────┴─────────┐
+          │                   │
+     development          production
+      namespace             namespace
+          │                   │
+     ┌────┼────┐         ┌────┼────┐
+     │    │    │         │    │    │
+   Nginx Flask Redis    Nginx Flask Redis
+          │                   │
+        MySQL               MySQL
+          │                   │
+        PVC                   PVC
 ```
-
-### Application tiers
-
-* **Nginx** — reverse proxy / frontend entry point
-* **Flask** — application layer
-* **MySQL** — persistent relational database
-* **Redis** — visit counter/cache layer
 
 ---
 
-## Technologies
+# Application Architecture
+
+The application consists of four main components:
+
+* **Nginx** — reverse proxy and external entry point
+* **Flask** — application layer
+* **MySQL** — relational database
+* **Redis** — visit counter/cache layer
+
+The Flask application communicates with MySQL and Redis through Kubernetes Services.
+
+---
+
+# Technologies
 
 * Docker
 * Docker Compose
 * Kubernetes
 * Minikube
+* Kustomize
 * Jenkins
 * Git & GitHub
 * Docker Hub
@@ -68,13 +77,15 @@ This project extends the original Dockerized 3-tier application by introducing K
 * Redis
 * Nginx
 * pytest
+* Linux
 
 ---
 
-## Project Structure
+# Project Structure
 
 ```text
 docker-3tier-project/
+│
 ├── app/
 │   ├── app.py
 │   ├── requirements.txt
@@ -82,38 +93,237 @@ docker-3tier-project/
 │   └── Dockerfile
 │
 ├── db/
-│   └── init.sql
+│   ├── Dockerfile
+│   └── init.sh
 │
 ├── nginx/
 │   ├── nginx.conf
 │   └── Dockerfile
 │
 ├── k8s/
-│   ├── deployment.yaml
-│   ├── service.yaml
-│   └── ...
+│   ├── base/
+│   │   ├── ...
+│   │   └── kustomization.yaml
+│   │
+│   └── overlays/
+│       ├── development/
+│       │   ├── ...
+│       │   ├── kustomization.yaml
+│       │   └── Jenkinsfile
+│       │
+│       └── production/
+│           ├── ...
+│           ├── kustomization.yaml
+│           └── Jenkinsfile
 │
 ├── compose.yml
 ├── Jenkinsfile
 └── README.md
 ```
 
+The Kubernetes configuration is organized using a **base + overlays** structure.
+
+```text
+                 k8s/base
+                    │
+          ┌─────────┴─────────┐
+          │                   │
+   development overlay   production overlay
+          │                   │
+     Development          Production
+```
+
+The base contains common Kubernetes resources, while the overlays contain environment-specific configuration.
+
 ---
 
-# CI/CD Pipeline
+# Multi-Environment Kubernetes
 
-The Jenkins pipeline consists of the following stages:
+Project 5 introduces two independent environments:
+
+```text
+development
+production
+```
+
+Each environment runs in its own Kubernetes namespace.
+
+```text
+Kubernetes Cluster
+│
+├── namespace: development
+│   ├── app
+│   ├── nginx
+│   ├── mysql
+│   ├── redis
+│   └── development PVCs
+│
+└── namespace: production
+    ├── app
+    ├── nginx
+    ├── mysql
+    ├── redis
+    └── production PVCs
+```
+
+This provides environment isolation while allowing both environments to share the same Kubernetes cluster.
+
+---
+
+# Kustomize
+
+Kustomize is used to manage environment-specific Kubernetes configuration without duplicating the entire set of manifests.
+
+The project uses:
+
+```text
+k8s/
+├── base/
+└── overlays/
+    ├── development/
+    └── production/
+```
+
+The base contains common resources.
+
+The overlays customize environment-specific settings such as:
+
+* Namespace
+* Replica counts
+* Environment variables
+* PersistentVolumeClaims
+* Resource limits
+* Environment-specific configuration
+* Deployment settings
+
+Kustomize builds the final Kubernetes manifests for each environment.
+
+Example:
+
+```bash
+kubectl kustomize k8s/overlays/development
+```
+
+```bash
+kubectl kustomize k8s/overlays/production
+```
+
+---
+
+# Environment Configuration
+
+The application receives its database and Redis configuration through Kubernetes configuration.
+
+Example environment variables:
+
+```text
+DB_HOST=mysql-service
+DB_NAME=appdb
+DB_PORT=3306
+
+REDIS_HOST=redis-service
+REDIS_PORT=6379
+```
+
+The same application can therefore run in both environments while Kubernetes provides the appropriate environment-specific configuration.
+
+---
+
+# Persistent Storage
+
+MySQL uses Kubernetes PersistentVolumeClaims.
+
+Separate storage is used for development and production.
+
+```text
+Development
+    │
+    └── MySQL PVC
+
+Production
+    │
+    └── MySQL PVC
+```
+
+This prevents database data from being tied to the lifecycle of an individual MySQL pod.
+
+---
+
+# Resource Management
+
+Resource requests and limits are defined for Kubernetes workloads.
+
+This provides Kubernetes with information about the resources required by containers and prevents workloads from consuming unlimited resources.
+
+Example concept:
+
+```text
+Pod
+ │
+ ├── CPU request
+ ├── CPU limit
+ ├── Memory request
+ └── Memory limit
+```
+
+Production and development can have different resource configurations through their Kustomize overlays.
+
+---
+
+# CI/CD Architecture
+
+Project 5 uses separate Jenkins pipelines for development and production.
+
+```text
+                         GitHub
+                            │
+                            ▼
+                    ┌──────────────┐
+                    │ Jenkins      │
+                    └──────┬───────┘
+                           │
+              ┌────────────┴────────────┐
+              │                         │
+        Development                Production
+          Pipeline                  Pipeline
+              │                         │
+       Automatic trigger           Manual trigger
+              │                         │
+          Test code                    │
+              │                         │
+        Build image                   │
+              │                         │
+        Push to Docker Hub             │
+              │                         │
+       Deploy to Dev                  │
+              │                         │
+       Verify rollout                 │
+              │                         │
+              └──────────┬──────────────┘
+                         │
+                  Tested image
+                         │
+                         ▼
+                  Production
+                   promotion
+```
+
+---
+
+# Development Pipeline
+
+The development pipeline is automatically triggered when application-related changes are detected.
+
+The general flow is:
 
 ```text
 GitHub Push
      │
      ▼
-   Test
+SCM Change Detection
      │
      ▼
-Check App Changes
-     │
-     ├── No app changes ──► Stop
+Run Tests
      │
      ▼
 Determine Version
@@ -122,185 +332,143 @@ Determine Version
 Build Docker Image
      │
      ▼
-Push to Docker Hub
+Push Image to Docker Hub
      │
      ▼
-Update Kubernetes
+Deploy to Development
      │
      ▼
 Wait for Rollout
      │
      ▼
-Create Git Tag
+Verify Deployment
 ```
 
-## 1. Test
-
-Jenkins creates a Python virtual environment if necessary and installs the application's dependencies.
-
-It then runs:
-
-```bash
-pytest
-```
-
-The deployment process only continues if the tests pass.
-
----
-
-## 2. Check App Changes
-
-The pipeline checks whether files inside the `app/` directory changed between the previous successful build and the current commit.
-
-It uses:
-
-```bash
-git diff --quiet <previous-commit> <current-commit> -- app/
-```
-
-If the application code did not change, the Docker build, Docker Hub push, Kubernetes update, and release tagging stages are skipped.
-
-This prevents unnecessary application deployments when changes only affect other parts of the repository.
-
----
-
-## 3. Determine Version
-
-Application releases are versioned using Git tags:
+Application versions use a common artifact naming scheme such as:
 
 ```text
-v1
-v2
-v3
+app-v1
+app-v2
+app-v3
 ...
 ```
 
-Jenkins finds the latest version using:
-
-```bash
-git tag --list 'v*' --sort=-v:refname | head -n 1
-```
-
-The next version is then generated automatically.
-
-For example:
-
-```text
-Latest tag:       v2
-Next application: v3
-```
-
-The `v:refname` sorting uses version-aware sorting so that `v10` is correctly considered newer than `v9`.
+A new application image is built when application code changes.
 
 ---
 
-## 4. Build Docker Image
+# SCM Trigger Filtering
 
-When application code changes, Jenkins builds a new Flask application image.
+The development pipeline does not run a complete deployment for every repository change.
+
+The pipeline uses SCM filtering so that application changes trigger the application CI/CD workflow.
+
+Relevant changes include:
+
+```text
+app/**
+Dockerfile
+```
+
+Changes that do not affect the application do not unnecessarily trigger the application build and deployment process.
+
+This reduces unnecessary builds and deployments.
+
+---
+
+# Production Pipeline
+
+Production is deliberately separated from the development pipeline.
+
+Production deployment is a controlled promotion process rather than an automatic build of a new image.
+
+```text
+Development
+     │
+     ▼
+Build app-vN
+     │
+     ▼
+Test
+     │
+     ▼
+Deploy to Development
+     │
+     ▼
+Verify
+     │
+     ▼
+Approved artifact
+     │
+     ▼
+Production Promotion
+     │
+     ▼
+Deploy the SAME app-vN
+```
+
+The production pipeline therefore promotes an already-built and tested application image rather than rebuilding the application.
+
+This follows the principle:
+
+> **Build once, promote the same artifact.**
+
+---
+
+# Artifact Versioning
+
+Application Docker images are versioned independently of Jenkins build numbers.
 
 Example:
 
-```bash
-docker build \
-    -t docker-3tier-app:jenkins-v3 \
-    ./app
+```text
+app-v1
+app-v2
+app-v3
 ```
 
-Only the application image is rebuilt.
-
-The MySQL image is not rebuilt on every application change because the database is stateful and uses persistent storage.
-
----
-
-## 5. Push to Docker Hub
-
-Jenkins authenticates to Docker Hub using stored Jenkins credentials and pushes the versioned image.
-
-Example:
+The same artifact can move through environments:
 
 ```text
-abrar15/docker-3tier-app:jenkins-v3
+Docker Hub
+    │
+    └── app-v3
+          │
+          ├── Development
+          │
+          └── Production
 ```
 
-Versioned images make it possible to identify which application version is deployed.
+This ensures that production runs the exact application artifact that was tested in development.
 
 ---
 
-## 6. Update Kubernetes
+# Git as the Source of Truth
 
-Jenkins updates the running Kubernetes Deployment using:
-
-```bash
-kubectl set image deployment/app \
-    app=abrar15/docker-3tier-app:jenkins-v3
-```
-
-It then waits for Kubernetes to complete the rollout:
+Project 5 moves away from directly modifying the running Kubernetes Deployment with:
 
 ```bash
-kubectl rollout status deployment/app
+kubectl set image
 ```
 
-This allows the pipeline to detect whether the new application version successfully rolled out.
+Instead, Kubernetes configuration is managed through the repository's Kustomize configuration.
 
----
-
-## 7. Create Git Release Tag
-
-The Git tag is created **only after the Kubernetes rollout succeeds**.
-
-For example:
-
-```bash
-git tag v3
-git push origin v3
-```
-
-This makes the Git tag represent a successfully deployed application release.
-
-If the Kubernetes deployment fails, the release tag is not created.
-
----
-
-# Versioning Strategy
-
-The project uses Git tags and Docker image tags together.
-
-For example:
+The desired state is represented in Git:
 
 ```text
-Git tag:
-v3
-
-Docker image:
-abrar15/docker-3tier-app:jenkins-v3
+Git Repository
+      │
+      ▼
+Kustomize configuration
+      │
+      ▼
+Kubernetes desired state
+      │
+      ▼
+Running workloads
 ```
 
-This provides a simple relationship between the source-code release and the deployed container image.
-
-The versioning flow is:
-
-```text
-Application change
-       │
-       ▼
-Determine next version
-       │
-       ▼
-Build jenkins-v3
-       │
-       ▼
-Push jenkins-v3
-       │
-       ▼
-Deploy to Kubernetes
-       │
-       ▼
-Rollout succeeds
-       │
-       ▼
-Create Git tag v3
-```
+This keeps Kubernetes configuration version-controlled and makes environment configuration easier to review and reproduce.
 
 ---
 
@@ -308,22 +476,66 @@ Create Git tag v3
 
 The application runs on a local Minikube Kubernetes cluster.
 
-The cluster contains:
+Each environment contains its own application stack.
 
 ```text
-Nginx
-  │
-  ▼
-Flask Application
-  │
-  ├── Redis
-  │
-  └── MySQL
+Development Namespace
+│
+├── Nginx
+├── Flask
+├── Redis
+└── MySQL
+     │
+     └── Persistent Storage
+
+
+Production Namespace
+│
+├── Nginx
+├── Flask
+├── Redis
+└── MySQL
+     │
+     └── Persistent Storage
 ```
 
-Kubernetes Services provide networking between the application components.
+Production uses multiple Flask application replicas to provide basic horizontal scaling.
 
-The MySQL database uses persistent storage so that database data is not tied to the lifecycle of an individual MySQL container.
+---
+
+# Kubernetes Services
+
+Kubernetes Services provide stable networking between components.
+
+For example:
+
+```text
+Flask
+ │
+ ├── mysql-service:3306
+ │
+ └── redis-service:6379
+```
+
+The application does not need to know the individual pod IP addresses.
+
+Kubernetes Services provide stable DNS-based endpoints inside the cluster.
+
+---
+
+# Health and Reliability
+
+The Kubernetes deployment uses health checks to allow Kubernetes to determine whether application containers are ready to receive traffic and whether unhealthy containers need to be restarted.
+
+The project also practices:
+
+* Rolling updates
+* Rollout monitoring
+* Pod health inspection
+* Container logs
+* Service inspection
+* Deployment status
+* Basic failure troubleshooting
 
 ---
 
@@ -331,41 +543,135 @@ The MySQL database uses persistent storage so that database data is not tied to 
 
 ## Start Minikube
 
+The project can be run on a local Minikube cluster.
+
+Example:
+
 ```bash
-minikube start --driver=docker
+minikube start
 ```
 
-## Apply Kubernetes manifests
+The exact Minikube driver depends on the local environment.
+
+---
+
+## Deploy Development
+
+Build and apply the development configuration:
 
 ```bash
-kubectl apply -f k8s/
+kubectl apply -k k8s/overlays/development
 ```
 
-## Check the cluster
+Check the namespace:
 
 ```bash
-kubectl get pods
+kubectl get all -n development
 ```
 
+Check persistent storage:
+
 ```bash
-kubectl get services
+kubectl get pvc -n development
 ```
 
+Check rollout:
+
 ```bash
-kubectl get deployments
+kubectl rollout status deployment/app -n development
 ```
 
-## Check the application rollout
+---
+
+## Deploy Production
+
+Apply the production configuration:
 
 ```bash
-kubectl rollout status deployment/app
+kubectl apply -k k8s/overlays/production
+```
+
+Check the namespace:
+
+```bash
+kubectl get all -n production
+```
+
+Check persistent storage:
+
+```bash
+kubectl get pvc -n production
+```
+
+Check rollout:
+
+```bash
+kubectl rollout status deployment/app -n production
+```
+
+---
+
+# Useful Kubernetes Commands
+
+Check all pods:
+
+```bash
+kubectl get pods -A
+```
+
+Check deployments:
+
+```bash
+kubectl get deployments -A
+```
+
+Check services:
+
+```bash
+kubectl get services -A
+```
+
+Check persistent volume claims:
+
+```bash
+kubectl get pvc -A
+```
+
+Describe a pod:
+
+```bash
+kubectl describe pod <pod-name> -n <namespace>
+```
+
+View pod logs:
+
+```bash
+kubectl logs <pod-name> -n <namespace>
+```
+
+Follow logs:
+
+```bash
+kubectl logs -f <pod-name> -n <namespace>
+```
+
+Check deployment status:
+
+```bash
+kubectl rollout status deployment/<deployment-name> -n <namespace>
+```
+
+Check rollout history:
+
+```bash
+kubectl rollout history deployment/<deployment-name> -n <namespace>
 ```
 
 ---
 
 # Jenkins Requirements
 
-The Jenkins server requires:
+The Jenkins environment requires:
 
 * Java 21
 * Git
@@ -374,122 +680,173 @@ The Jenkins server requires:
 * Python 3
 * Python virtual environment support
 * Jenkins Pipeline support
-* SSH Agent Plugin
-* GitHub SSH credentials
+* Jenkins credentials
+* SSH access to GitHub
 * Docker Hub credentials
+* Access to the Kubernetes cluster
 
-The Jenkins user must also have permission to use Docker and interact with the Kubernetes cluster.
+The Jenkins user must have the required permissions to execute Docker, Git, kubectl, and the project's CI/CD commands.
 
 ---
 
 # Key DevOps Concepts Practiced
 
-This project provided hands-on experience with:
+## Docker
 
-### Docker
-
-* Building Docker images
-* Image tagging
+* Docker image creation
+* Docker image tagging
 * Docker Hub
 * Containerized application deployment
+* Multi-container applications
 
-### Jenkins
+## Jenkins
 
 * Declarative Pipelines
+* Multiple pipelines
 * Pipeline stages
-* `when` conditions
-* Environment variables
+* Conditional execution
 * Jenkins credentials
 * Automated testing
-* Conditional deployments
+* SCM triggers
+* Development and production workflows
 
-### Git
+## Git
 
-* Git tags
-* Versioning
-* Remote repositories
-* Git diff
+* Git branches
+* Git commits
 * Git history
-* Automated release tagging
+* Git tags
+* Versioned infrastructure configuration
+* Git as a source of truth
 
-### Kubernetes
+## Kubernetes
 
+* Pods
 * Deployments
 * Services
-* Container images
+* Namespaces
+* ConfigMaps
+* Secrets
+* PersistentVolumeClaims
+* Resource requests and limits
 * Rolling updates
-* Rollout status
-* Image updates using `kubectl set image`
-* Basic rollback concepts
+* Health checks
+* Multi-replica deployments
+* Kubernetes networking
+* Cluster troubleshooting
 
-### CI/CD
+## Kustomize
 
-The project demonstrates the complete flow:
+* Base configuration
+* Environment overlays
+* Patches
+* Environment-specific configuration
+* Manifest generation
+
+## CI/CD
+
+The project demonstrates:
 
 ```text
-Code
- ↓
+Code Change
+     │
+     ▼
+SCM Detection
+     │
+     ▼
 Test
- ↓
-Detect Changes
- ↓
+     │
+     ▼
 Build
- ↓
-Push
- ↓
-Deploy
- ↓
+     │
+     ▼
+Push Image
+     │
+     ▼
+Development Deployment
+     │
+     ▼
 Verify
- ↓
-Release Tag
+     │
+     ▼
+Promote Same Artifact
+     │
+     ▼
+Production Deployment
 ```
 
 ---
 
-# Known Limitation
+# Project Evolution
 
-The Jenkins pipeline currently updates the live Kubernetes Deployment using:
-
-```bash
-kubectl set image
-```
-
-This means the image running in the cluster can differ from the image specified in the Kubernetes manifest stored in Git.
-
-For example:
+This project is part of a progression from a simple containerized application toward a production-oriented DevOps workflow.
 
 ```text
-Git repository
-deployment.yaml
-     │
-     │ may contain an older image
-     ▼
-Kubernetes cluster
-     │
-     └── Jenkins updates live image directly
+Project 1
+Dockerized 3-Tier Application
+        │
+        ▼
+Project 2
+Jenkins CI/CD
+        │
+        ▼
+Project 3
+Kubernetes Deployment
+        │
+        ▼
+Project 4
+Kubernetes + Jenkins CI/CD
+        │
+        ▼
+Project 5
+Multi-Environment Kubernetes
++ Kustomize
++ Artifact Promotion
++ Production Workflow
 ```
 
-This is an intentional limitation of this project.
-
-A later project will address configuration consistency and Git as the source of truth using a multi-environment and GitOps approach.
+Project 5 focuses on introducing the operational concepts required when the same application must exist in multiple environments with controlled promotion between them.
 
 ---
 
 # Project Outcome
 
-This project demonstrates a complete Jenkins-driven Kubernetes deployment workflow for a containerized 3-tier application.
+Project 5 demonstrates a complete multi-environment Kubernetes deployment workflow.
 
-The pipeline can automatically:
+The project now supports:
 
-1. Test application code
-2. Detect application changes
-3. Generate an application version
-4. Build a Docker image
-5. Push the image to Docker Hub
-6. Update the Kubernetes Deployment
-7. Verify the rollout
-8. Create a Git release tag
+1. Containerized 3-tier application deployment
+2. Kubernetes-based application management
+3. Development and production environments
+4. Namespace isolation
+5. Kustomize base and overlays
+6. Environment-specific configuration
+7. Persistent database storage
+8. Kubernetes resource limits
+9. Automated development CI/CD
+10. Controlled production promotion
+11. Versioned Docker artifacts
+12. Build-once, promote-same-artifact workflow
+13. SCM change filtering
+14. Rolling deployments
+15. Kubernetes health and rollout verification
+16. Git-managed Kubernetes configuration
 
-The project builds on the previous Docker + Jenkins project and introduces Kubernetes as the deployment platform.
+The result is a more realistic DevOps workflow where application code, infrastructure configuration, deployment environments, and release artifacts are managed in a controlled and reproducible way.
 
+---
+
+# Future Improvements
+
+Possible future improvements include:
+
+* GitOps with Argo CD
+* Monitoring with Prometheus and Grafana
+* Centralized logging
+* Infrastructure provisioning with Terraform
+* Deployment to AWS
+* Managed Kubernetes with Amazon EKS
+* Production-grade ingress and TLS
+* Automated rollback strategies
+* More comprehensive observability
 
